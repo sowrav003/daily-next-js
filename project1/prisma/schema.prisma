@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum OrderStatus {
+  PENDING
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(STAFF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales          Sale[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model Supplier {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  phone      String
+  apiBaseUrl String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  name         String
+  sku          String   @unique
+  barcode      String?
+  category     String
+  price        Float
+  costPrice    Float
+  stockQty     Int      @default(0)
+  minStockLevel Int     @default(10)
+  currency     String   @default("USD")
+  supplierId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplier           Supplier?           @relation(fields: [supplierId], references: [id])
+  purchaseOrderItems PurchaseOrderItem[]
+  sales              Sale[]
+  stockLogs          StockLog[]
+  priceHistory       PriceHistory[]
+}
+
+model PurchaseOrder {
+  id         String      @id @default(cuid())
+  orderNumber String     @unique
+  supplierId String
+  status     OrderStatus @default(PENDING)
+  totalAmount Float      @default(0)
+  notes      String?
+  createdBy  String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  user     User                @relation(fields: [createdBy], references: [id])
+  items    PurchaseOrderItem[]
+}
+
+model PurchaseOrderItem {
+  id              String @id @default(cuid())
+  purchaseOrderId String
+  productId       String
+  quantity        Int
+  unitPrice       Float
+  totalPrice      Float
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id])
+}
+
+model Sale {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  quantity  Int
+  unitPrice Float
+  total     Float
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+model StockLog {
+  id        String   @id @default(cuid())
+  productId String
+  type      String   // IN, OUT, ADJUSTMENT
+  quantity  Int
+  reason    String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  productId String
+  oldPrice  Float
+  newPrice  Float
+  source    String   // MANUAL, SUPPLIER_SYNC
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+}
